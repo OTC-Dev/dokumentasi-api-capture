@@ -155,6 +155,8 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
   <li><a href="#02-statuses"><span class="mm m-get">GET</span><span class="tp">/<wbr>statuses</span></a></li>
   <li><a href="#02-upload-reports"><span class="mm m-get">GET</span><span class="tp">/<wbr>upload-<wbr>reports</span></a></li>
   <li><a href="#02-norms"><span class="mm m-get">GET</span><span class="tp">/<wbr>norms</span></a></li>
+  <li><a href="#02-competency-dictionaries"><span class="mm m-get">GET</span><span class="tp">/<wbr>competency-<wbr>dictionaries</span></a></li>
+  <li><a href="#02-competency-dictionary-detail"><span class="mm m-get">GET</span><span class="tp">/<wbr>competency-<wbr>dictionaries/<wbr>{id}</span></a></li>
   <li><a href="#02-mail-templates"><span class="mm m-get">GET</span><span class="tp">/<wbr>mail-<wbr>templates/<wbr>{unitId}</span></a></li>
   <li><a href="#02-tests"><span class="mm m-get">GET</span><span class="tp">/<wbr>tests</span></a></li>
 </ol>
@@ -297,7 +299,7 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
 <main>
 <header class="top">
   <h1>Dokumentasi API v1 Capture</h1>
-  <p style="max-width: 100%;">Referensi lengkap semua endpoint <code>/api/v1</code> di repo <code>capture-api</code> (branch <code>main</code>): parameter, payload, dan bentuk respons. Disusun dari kode route, controller, dan validasi per 22 Oktober 2026. Contoh nilai di respons bersifat ilustrasi; bentuk field mengikuti kode.</p>
+  <p style="max-width: 100%;">Referensi lengkap semua endpoint <code>/api/v1</code> di repo <code>capture-api</code> (branch <code>main</code>): parameter, payload, dan bentuk respons. Disusun dari kode route, controller, dan validasi per 23 Oktober 2026. Contoh nilai di respons bersifat ilustrasi; bentuk field mengikuti kode.</p>
 </header>
 
 <section class="ep" id="setup">
@@ -320,8 +322,8 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
     <thead><tr><th>Cara</th><th>Path yang diizinkan</th></tr></thead>
     <tbody>
       <tr><td>Internal</td><td>Semua endpoint.</td></tr>
-      <tr><td>API key</td><td class="req"><code>companies</code>, <code>divisions</code>, <code>units</code>, <code>levels</code>, <code>positions</code>, <code>form-datas</code>, <code>assessment-purposes</code>, <code>mail-templates/*</code>, <code>tests</code>, <code>tests/*</code></td></tr>
-      <tr><td>JWT</td><td class="req"><code>candidates</code> (tanpa sub-path), <code>comparison/*</code>, <code>filters/options</code>, <code>companies</code>, <code>companies/*</code>, <code>divisions</code>, <code>units</code>, <code>levels</code>, <code>positions</code>, <code>team-dynamic/*</code>, <code>users/*</code>, <code>billing/quote</code>, <code>feedbacks</code></td></tr>
+      <tr><td>API key</td><td class="req"><code>companies</code>, <code>divisions</code>, <code>units</code>, <code>levels</code>, <code>positions</code>, <code>form-datas</code>, <code>assessment-purposes</code>, <code>mail-templates/*</code>, <code>tests</code>, <code>tests/*</code>, <code>competency-dictionaries</code>, <code>competency-dictionaries/*</code></td></tr>
+      <tr><td>JWT</td><td class="req"><code>candidates</code> (tanpa sub-path), <code>comparison/*</code>, <code>filters/options</code>, <code>companies</code>, <code>companies/*</code>, <code>divisions</code>, <code>units</code>, <code>levels</code>, <code>positions</code>, <code>team-dynamic/*</code>, <code>users/*</code>, <code>billing/quote</code>, <code>feedbacks</code>, <code>competency-dictionaries</code>, <code>competency-dictionaries/*</code></td></tr>
     </tbody>
   </table></div>
 </section>
@@ -1627,6 +1629,129 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
     …
   ],
   "meta": null
+}</pre><button class="copy" type="button">Salin</button></div></details>
+</section>
+
+<!-- ===================== /competency-dictionaries ===================== -->
+<section class="ep" id="02-competency-dictionaries">
+  <div class="ep-head"><span class="method m-get">GET</span><span class="path">/api/v1/competency-dictionaries</span>
+    <span class="chips"><span class="chip">CompetencyDictionaryController@index</span><span class="chip">Akses: API key, JWT, internal</span></span></div>
+  <p style="max-width:100%;">Daftar kamus kompetensi (menu <b>Kamus Kompetensi</b> di Capture) milik satu company, tanpa isi kompetensi. Isi lengkap lewat <a href="#02-competency-dictionary-detail"><code>/competency-dictionaries/{id}</code></a>. Maksimal satu kamus aktif per company. Urut <code>id</code> terbaru dulu (desc). Kamus yang sudah dihapus tidak ikut.</p>
+  <h3>Parameter</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
+    <tbody>
+      <tr><td><code>company_id</code></td><td>query</td><td>integer</td><td>–</td><td>Harus ada di <code>companies</code>. Internal/JWT: default dari <code>X-Company-Id</code>/token; company lain hanya untuk user dengan role <b>Global</b> (role aktif id 1), selain itu 403. API key: diabaikan, selalu company milik API key.</td></tr>
+      <tr><td><code>dictionary_type</code></td><td>query</td><td>string</td><td>–</td><td><code>level</code> atau <code>rating</code>. (<code>type</code> dipakai untuk mode paginasi.)</td></tr>
+      <tr><td><code>is_active</code></td><td>query</td><td>boolean</td><td>–</td><td><code>1</code>/<code>0</code>. <code>is_active=1</code> = kamus aktif company.</td></tr>
+      <tr><td><code>type</code>, <code>per_page</code>, <code>page</code></td><td>query</td><td></td><td>–</td><td>Paginasi standar.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Respons</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Kode</th><th>Kapan</th><th>Bentuk body</th></tr></thead>
+    <tbody>
+      <tr><td>200</td><td>Sukses (tanpa kamus = <code>[]</code>)</td><td><code>{status, message: "Get All Competency Dictionaries", data: [{id, company_id, name, type, is_active, competencies_count, company: {id, name}}], meta}</code></td></tr>
+      <tr><td>401</td><td>Kredensial tidak ada / tidak valid</td><td><code>{"status":401,"message":"Unauthorized"}</code></td></tr>
+      <tr><td>403</td><td>Internal/JWT meminta <code>company_id</code> company lain tanpa role Global</td><td><code>{"status":403,"message":"Forbidden"}</code></td></tr>
+      <tr><td>422</td><td>Param tidak valid, atau <code>company_id</code> tidak ada</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
+      <tr><td>500</td><td>Error tak tertangani</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
+    </tbody>
+  </table></div>
+  <h3>Contoh request</h3>
+  <div class="codebox"><pre>curl "https://{host}/api/v1/competency-dictionaries?is_active=1" \
+  -H "X-API-Key: {api_key}"
+
+# internal/JWT role Global: kamus company lain
+curl "https://{host}/api/v1/competency-dictionaries?company_id=1&amp;type=all" \
+  -H "Authorization: Bearer {token}"</pre><button class="copy" type="button">Salin</button></div>
+  <details><summary>Contoh respons sukses</summary><div class="codebox"><pre>{
+  "status": 200,
+  "message": "Get All Competency Dictionaries",
+  "data": [
+    { "id": 6, "company_id": 1, "name": "Kamus Kompetensi 2026", "type": "level", "is_active": true, "competencies_count": 2, "company": { "id": 1, "name": "Human Care Consulting" } },
+    { "id": 8, "company_id": 1, "name": "Kamus Rating", "type": "rating", "is_active": false, "competencies_count": 5, "company": { "id": 1, "name": "Human Care Consulting" } }
+  ],
+  "meta": { "current_page": 1, "per_page": 10, "total": 2, "last_page": 1 }
+}</pre><button class="copy" type="button">Salin</button></div></details>
+</section>
+
+<!-- ===================== /competency-dictionaries/{id} ===================== -->
+<section class="ep" id="02-competency-dictionary-detail">
+  <div class="ep-head"><span class="method m-get">GET</span><span class="path">/api/v1/competency-dictionaries/{id}</span>
+    <span class="chips"><span class="chip">CompetencyDictionaryController@show</span><span class="chip">Akses: API key, JWT, internal</span></span></div>
+  <p style="max-width:100%;">Detail satu kamus beserta seluruh kompetensinya. Isi mengikuti <code>type</code>: <code>level</code> = kompetensi &rarr; <code>levels</code> &rarr; <code>key_behaviors</code>; <code>rating</code> = kompetensi &rarr; <code>key_behaviors</code> (tanpa <code>levels</code>). Data yang sudah dihapus tidak ikut. Urutan: kompetensi per <code>sort</code>, level per <code>level_no</code>, key behavior per <code>sort</code>. Kamus company lain hanya bisa dibuka user role <b>Global</b> (internal/JWT); selain itu 404, sama seperti id yang tidak ada.</p>
+  <h3>Parameter</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
+    <tbody>
+      <tr><td><code>id</code></td><td>path</td><td>integer</td><td class="req-yes">Ya</td><td>Id kamus dari <a href="#02-competency-dictionaries"><code>/competency-dictionaries</code></a>.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Respons</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>Kode</th><th>Kapan</th><th>Bentuk body</th></tr></thead>
+    <tbody>
+      <tr><td>200</td><td>Sukses</td><td><code>{status, message: "Get Competency Dictionary", data: {id, name, type, is_active, company: {id, name}, competencies: [{id, name, definition, sort, levels: [{id, level_no, description, key_behaviors: [{id, description}]}] | key_behaviors: [{id, description}]}]}}</code></td></tr>
+      <tr><td>401</td><td>Kredensial tidak ada / tidak valid</td><td><code>{"status":401,"message":"Unauthorized"}</code></td></tr>
+      <tr><td>404</td><td>Id tidak ada / sudah dihapus, atau milik company lain tanpa role Global (API key selalu)</td><td><code>{"status":404,"message":"Competency dictionary not found","data":[]}</code></td></tr>
+      <tr><td>500</td><td>Error tak tertangani</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
+    </tbody>
+  </table></div>
+  <h3>Contoh request</h3>
+  <div class="codebox"><pre>curl "https://{host}/api/v1/competency-dictionaries/6" \
+  -H "X-API-Key: {api_key}"</pre><button class="copy" type="button">Salin</button></div>
+  <details><summary>Contoh respons sukses, jenis <code>level</code> (dipotong)</summary><div class="codebox"><pre>{
+  "status": 200,
+  "message": "Get Competency Dictionary",
+  "data": {
+    "id": 6,
+    "name": "Kamus Kompetensi 2026",
+    "type": "level",
+    "is_active": true,
+    "company": { "id": 1, "name": "Human Care Consulting" },
+    "competencies": [
+      {
+        "id": 7,
+        "name": "Business Sense",
+        "definition": "Mengidentifikasi peluang meningkatkan keuntungan …",
+        "sort": 0,
+        "levels": [
+          {
+            "id": 10,
+            "level_no": 1,
+            "description": "Optimalisasi Profit Margin",
+            "key_behaviors": [
+              { "id": 10, "description": "Memahami keterkaitan produk dan layanan existing …" }
+            ]
+          },
+          …
+        ]
+      }
+    ]
+  }
+}</pre><button class="copy" type="button">Salin</button></div></details>
+  <details><summary>Contoh respons sukses, jenis <code>rating</code> (dipotong)</summary><div class="codebox"><pre>{
+  "status": 200,
+  "message": "Get Competency Dictionary",
+  "data": {
+    "id": 8,
+    "name": "Kamus Rating",
+    "type": "rating",
+    "is_active": false,
+    "company": { "id": 1, "name": "Human Care Consulting" },
+    "competencies": [
+      {
+        "id": 12,
+        "name": "Kerja Sama",
+        "definition": null,
+        "sort": 0,
+        "key_behaviors": [
+          { "id": 30, "description": "Membantu anggota tim yang kesulitan" }
+        ]
+      }
+    ]
+  }
 }</pre><button class="copy" type="button">Salin</button></div></details>
 </section>
 
