@@ -311,10 +311,6 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
       <tr><td>3</td><td>API key</td><td><code>X-API-Key: &lt;key&gt;</code></td><td>Dari tabel <code>api_clients</code> (aktif, belum dihapus, <code>expired_at</code> &gt; sekarang). Request &amp; respons dicatat lewat <code>LogApiJob</code> (antrian <code>medium</code>), kecuali respons streaming.</td></tr>
     </tbody>
   </table></div>
-  <p><code>POST /generate-token/user</code> tidak butuh autentikasi. Request <code>OPTIONS</code> dibalas 204. Body JSON yang tidak valid dibalas 422 <code>Invalid JSON body: …</code>; angka berawalan nol di dalam array (mis. <code>"unit_ids":[01]</code>) dibalas 422 <code>unit ids id : 01 not valid.</code></p>
-  <div class="codebox"><pre>curl -s "http://127.0.0.1:8000/api/v1/units?per_page=5" \
-  -H "Accept: application/json" \
-  -H "X-API-Key: &lt;api-key&gt;"</pre><button class="copy" type="button">Salin</button></div>
 </section>
 
 <section class="ep" id="akses">
