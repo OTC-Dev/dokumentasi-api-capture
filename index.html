@@ -311,6 +311,7 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
       <tr><td>3</td><td>API key</td><td><code>X-API-Key: &lt;key&gt;</code></td><td>Dari tabel <code>api_clients</code> (aktif, belum dihapus, <code>expired_at</code> &gt; sekarang). Request &amp; respons dicatat lewat <code>LogApiJob</code> (antrian <code>medium</code>), kecuali respons streaming.</td></tr>
     </tbody>
   </table></div>
+  <p style="max-width:100%;">Untuk publikasi template AC, company dibaca dari konteks autentikasi yang diisi middleware. Role tidak diambil dari query/body: user dicari memakai <code>user_id</code> konteks autentikasi, lalu dibaca role aktif pertama pada <code>user_roles.is_active = 1</code>; Global = role id <code>1</code>. Internal mengambil user dari <code>X-User-Id</code>, JWT dari token terverifikasi, dan API key dari pemilik <code>api_clients</code>. API key tetap company-scoped dan tidak mendapat akses Draft meskipun pemilik key adalah Global. Lihat <a href="#ac-publication">aturan publikasi AC</a> dan <a href="#akses">matriks akses endpoint</a>.</p>
 </section>
 
 <section class="ep" id="akses">
@@ -1725,12 +1726,13 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
 <section class="ep" id="02-simulations">
   <div class="ep-head"><span class="method m-get">GET</span><span class="path">/api/v1/simulations</span>
     <span class="chips"><span class="chip">SimulationController@index</span><span class="chip">Akses: internal</span></span></div>
-  <p style="max-width:100%;">Jenis simulasi AC yang tersedia untuk company: baris <code>test_availabilities</code> yang jenis tesnya punya <code>ac_id</code> (bukan null/0) dan belum dihapus. Urut id jenis tes. <code>id</code> di sini id jenis tes, <b>bukan</b> id template. Hanya kredensial internal.</p>
+  <p style="max-width:100%;">Jenis simulasi AC yang tersedia untuk company: baris <code>test_availabilities</code> yang belum dihapus, dengan jenis tes <code>test_types</code> yang juga belum dihapus dan punya <code>ac_id</code> (bukan null/0). Urut id jenis tes. <code>id</code> di sini id jenis tes, <b>bukan</b> id template. Hanya kredensial internal.</p>
+  <p style="max-width:100%;">Endpoint ini mengikuti <b>Test Availability</b>, bukan status publikasi template. Template Publik tidak otomatis mengaktifkan jenis tes untuk company. Jenis tes bisa tetap muncul walaupun tidak ada template yang boleh diakses; template yang dapat dipilih diperoleh dari <a href="#02-sim-templates"><code>/simulations/templates</code></a>.</p>
   <h3>Parameter</h3>
   <div class="scroll"><table>
     <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
     <tbody>
-      <tr><td><code>company_id</code></td><td>query</td><td>integer</td><td>–</td><td>Default dari <code>X-Company-Id</code>.</td></tr>
+      <tr><td><code>company_id</code></td><td>query</td><td>integer</td><td>–</td><td>Default dari <code>X-Company-Id</code>; query ini dapat mengganti company untuk akses internal pada endpoint jenis simulasi ini. Berbeda dengan endpoint template, yang selalu memakai company dari autentikasi.</td></tr>
       <tr><td><code>type</code>, <code>per_page</code>, <code>page</code></td><td>query</td><td></td><td>–</td><td>Paginasi standar.</td></tr>
     </tbody>
   </table></div>
@@ -1760,7 +1762,24 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
 <section class="ep" id="02-sim-templates">
   <div class="ep-head"><span class="method m-get">GET</span><span class="path">/api/v1/simulations/templates</span>
     <span class="chips"><span class="chip">SimulationController@simulationTemplates</span><span class="chip">Akses: internal</span></span></div>
-  <p style="max-width:100%;">Template simulasi dari empat jenis, digabung berurutan inbasket → case_study → lgd → role_play (tiap jenis urut <code>id</code>). Template In Basket dibatasi ke company dari <code>X-Company-Id</code> (param <code>company_id</code> <b>tidak</b> dipakai di sini); Case Study, LGD, dan Role Play adalah bank soal global. Semua baris dimuat dulu lalu dipaginasi di memori. Hanya kredensial internal.</p>
+  <p style="max-width:100%;">Template simulasi dari empat jenis, digabung berurutan inbasket → case_study → lgd → role_play (tiap jenis urut <code>id</code>). Keempat jenis difilter berdasarkan publikasi dan company target, ditambah Draft khusus Global sesuai aturan di bawah. Pembatasan berdasarkan company pemilik In Basket sudah digantikan oleh hak publikasi. Semua baris dimuat dulu lalu dipaginasi di memori. Hanya kredensial internal.</p>
+  <h3 id="ac-publication">Aturan publikasi template AC</h3>
+  <p style="max-width:100%;">Berlaku untuk keempat jenis template. Company target berasal dari <code>X-Company-Id</code> pada autentikasi internal; query/body <code>company_id</code> tidak menggantikan konteks ini. Role aktif user dibaca dari database, bukan dari parameter <code>role_id</code> atau <code>is_global</code>.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Publikasi</th><th>Nilai tersimpan</th><th>Akses company / non-Global</th><th>Akses Global melalui internal key</th></tr></thead>
+    <tbody>
+      <tr><td>Semua Perusahaan (Publik)</td><td><code>public</code></td><td>Tersedia untuk semua company.</td><td>Tersedia.</td></tr>
+      <tr><td>Perusahaan Terpilih (Custom)</td><td><code>custom</code></td><td>Tersedia bila company target tercantum dalam daftar akses.</td><td>Tetap mengikuti daftar akses company target; tidak otomatis mencakup seluruh Custom.</td></tr>
+      <tr><td>Draft (Hanya Global)</td><td><code>draft</code></td><td>Tidak tersedia.</td><td>Tersedia bila user pemanggil memiliki role aktif Global (id <code>1</code>).</td></tr>
+    </tbody>
+  </table></div>
+  <p style="max-width:100%;">Company pemilik In Basket (<code>company_id</code> pada template) berbeda dari company penerima akses Custom. Template Publik atau Custom yang sesuai dapat diakses meskipun dimiliki company lain. Template In Basket yang sudah soft-delete tetap dikecualikan. Pengaturan publikasi dikelola di Capture; tidak ada parameter baru untuk mengubah publikasi melalui endpoint GET ini.</p>
+  <p style="max-width:100%;">Filter diterapkan sebelum pagination: jumlah <code>meta.total</code> hanya menghitung template yang boleh diakses. Bentuk respons tetap <code>{id, type, name, duration}</code>; field <code>publication_status</code> dan daftar company tidak ditambahkan ke respons.</p>
+  <details><summary>Contoh request internal (gunakan user dan company yang sesuai)</summary><div class="codebox"><pre>curl "https://{host}/api/v1/simulations/templates?simulation_type=inbasket&amp;type=all" \
+  -H "Accept: application/json" \
+  -H "X-Internal-Key: {internal_key}" \
+  -H "X-User-Id: {user_id}" \
+  -H "X-Company-Id: {company_id}"</pre><button class="copy" type="button">Salin</button></div></details>
   <h3>Parameter</h3>
   <div class="scroll"><table>
     <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
@@ -1773,9 +1792,10 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
   <div class="scroll"><table>
     <thead><tr><th>Kode</th><th>Kapan</th><th>Bentuk body</th></tr></thead>
     <tbody>
-      <tr><td>200</td><td>Sukses</td><td><code>{status, message: "Get All Template AC", data: [{id, type, name, duration}], meta}</code>. <code>name</code> diambil dari <code>name</code>, atau <code>title</code> bila kosong.</td></tr>
+      <tr><td>200</td><td>Sukses</td><td><code>{status, message: "Get All Template AC", data: [{id, type, name, duration}], meta}</code>. <code>name</code> diambil dari <code>name</code>, atau <code>title</code> bila <code>name</code> null/tidak ada.</td></tr>
       <tr><td>401</td><td>Kredensial tidak ada / tidak valid</td><td><code>{"status":401,"message":"Unauthorized"}</code></td></tr>
       <tr><td>403</td><td>Dipanggil dengan API key atau JWT</td><td><code>{"status":403,"message":"Forbidden"}</code></td></tr>
+      <tr><td>403</td><td>Internal key valid tetapi konteks company bukan integer positif</td><td><code>{"status":403,"message":"Company context is required"}</code></td></tr>
       <tr><td>422</td><td><code>simulation_type</code> di luar enum, atau paginasi tidak valid</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
       <tr><td>500</td><td>Error tak tertangani</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
     </tbody>
@@ -1795,7 +1815,7 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
 <section class="ep" id="02-sim-template-detail">
   <div class="ep-head"><span class="method m-get">GET</span><span class="path">/api/v1/simulations/templates/{id}</span>
     <span class="chips"><span class="chip">SimulationController@simulationTemplateDetail</span><span class="chip">Akses: internal</span></span></div>
-  <p style="max-width:100%;">Detail satu template simulasi beserta soal/sub-soal (urut <code>sort</code>). Id template bisa sama antar jenis, jadi <code>simulation_type</code> wajib. In Basket dibatasi ke company dari <code>X-Company-Id</code>; soal In Basket ikut membawa <code>question_emails</code>. Isi <code>questions[]</code> adalah semua kolom tabel sub-soal jenis tersebut (bentuk berbeda per jenis), <code>pivot</code> disembunyikan. Tanpa <code>meta</code>. Hanya kredensial internal.</p>
+  <p style="max-width:100%;">Detail satu template simulasi beserta soal/sub-soal (urut <code>sort</code>). Id template bisa sama antar jenis, jadi <code>simulation_type</code> wajib. Keempat jenis memakai <a href="#ac-publication">aturan publikasi yang sama dengan list</a>, termasuk company dari autentikasi dan Draft khusus Global. Soal In Basket ikut membawa <code>question_emails</code>. Isi <code>questions[]</code> adalah semua kolom tabel sub-soal jenis tersebut (bentuk berbeda per jenis), <code>pivot</code> disembunyikan. Tanpa <code>meta</code>. Hanya kredensial internal.</p>
   <h3>Parameter</h3>
   <div class="scroll"><table>
     <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
@@ -1811,7 +1831,8 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
       <tr><td>200</td><td>Sukses</td><td><code>{status, message: "Get Template AC", data: {id, type, name, duration, questions: [ … ]}}</code></td></tr>
       <tr><td>401</td><td>Kredensial tidak ada / tidak valid</td><td><code>{"status":401,"message":"Unauthorized"}</code></td></tr>
       <tr><td>403</td><td>Dipanggil dengan API key atau JWT</td><td><code>{"status":403,"message":"Forbidden"}</code></td></tr>
-      <tr><td>404</td><td>Template tidak ada (atau In Basket milik company lain)</td><td><code>{"status":404,"message":"Template not found"}</code></td></tr>
+      <tr><td>403</td><td>Internal key valid tetapi konteks company bukan integer positif</td><td><code>{"status":403,"message":"Company context is required"}</code></td></tr>
+      <tr><td>404</td><td>Template tidak ditemukan, In Basket sudah soft-delete, atau pemanggil tidak memiliki akses publikasi (Custom company lain / Draft untuk non-Global)</td><td><code>{"status":404,"message":"Template not found"}</code></td></tr>
       <tr><td>422</td><td><code>simulation_type</code> kosong / di luar enum</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
       <tr><td>500</td><td>Error tak tertangani</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
     </tbody>
@@ -2045,7 +2066,7 @@ Cache-Control: max-age=0
       <tr><td><code>test_tags</code></td><td>array (integer|string)</td><td>–</td><td>Id tag milik company, atau nama tag baru (akan dibuat).</td></tr>
       <tr><td><code>test_norm</code></td><td>integer[]</td><td>–</td><td>Id <code>test_multi_norms</code>; tanpa ini dipakai norma default per tag.</td></tr>
       <tr><td><code>is_demo</code>, <code>free_token</code>, <code>filter_pass_score</code>, <code>is_send_report_candidate</code>, <code>notify_admin</code>, <code>is_report_static</code></td><td>boolean</td><td>–</td><td>Flag tambahan. Default: <code>notify_admin</code> 1, <code>is_report_static</code> true, lainnya false.</td></tr>
-      <tr><td><code>test_type_ac</code></td><td>integer[]</td><td>–</td><td>Test AC. Butuh test "Konfirmasi" tag AC di <code>test_type</code> dan template sesuai (<code>template_inbasket_id</code>, <code>question_cs_id</code>, <code>question_rp_id</code>, <code>question_lgd_id</code>).</td></tr>
+      <tr><td><code>test_type_ac</code></td><td>integer[]</td><td>–</td><td>Id jenis tes AC dari Test Availability company; integer positif dan tidak duplikat. Butuh test "Konfirmasi" tag AC di <code>test_type</code>, serta id template yang sesuai dan boleh diakses. Lihat <a href="#ac-scheduling">pemetaan field dan validasi publikasi</a>.</td></tr>
       <tr><td><code>type_therapy_id</code></td><td>integer[]</td><td>–</td><td>Test therapy. Butuh test "Konfirmasi" tag THERAPY di <code>test_type</code>. Opsional <code>start_test_therapy[]</code>, <code>finish_test_therapy[]</code>.</td></tr>
       <tr><td><code>start_interview</code>, <code>finish_interview</code></td><td>datetime</td><td>–</td><td>Bila <code>start_interview</code> diisi, interview dibuat dan PM/HR diberi notifikasi.</td></tr>
       <tr><td><code>purpose_interview_id</code></td><td>integer</td><td>–</td><td>Dicek bila <code>start_interview</code> juga diisi.</td></tr>
@@ -2077,6 +2098,34 @@ Cache-Control: max-age=0
   ]
 }</pre><button class="copy" type="button">Salin</button></div>
 
+  <h3 id="ac-scheduling">Pemilihan template dan validasi publikasi AC</h3>
+  <p style="max-width:100%;">Ketika <code>test_type_ac</code> diisi, setiap id harus berupa integer positif, tidak duplikat, merupakan jenis tes AC yang masih tersedia pada Test Availability company target, dan jenis tesnya belum dihapus. Company target berasal dari autentikasi, bukan <code>company_id</code> body. Pilih template yang ada dan memenuhi <a href="#ac-publication">aturan publikasi</a>; jangan mengirim pilihan default otomatis.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Simulasi</th><th><code>ac_id</code> jenis tes</th><th>Field template</th><th>Wajib</th></tr></thead>
+    <tbody>
+      <tr><td>In Basket</td><td>1</td><td><code>template_inbasket_id</code> (integer)</td><td>Bila In Basket dipilih.</td></tr>
+      <tr><td>Case Study</td><td>2</td><td><code>question_cs_id</code> (integer)</td><td>Bila Case Study dipilih.</td></tr>
+      <tr><td>Role Play</td><td>3</td><td><code>question_rp_id</code> (integer)</td><td>Bila Role Play dipilih.</td></tr>
+      <tr><td>LGD</td><td>5</td><td><code>question_lgd_id</code> (integer)</td><td>Bila LGD dipilih.</td></tr>
+    </tbody>
+  </table></div>
+  <p style="max-width:100%;">Gunakan id jenis tes dari <a href="#02-simulations"><code>/simulations</code></a> untuk <code>test_type_ac</code>, bukan angka <code>ac_id</code> pada tabel di atas. Id template diambil dari <a href="#02-sim-templates"><code>/simulations/templates</code></a>. Endpoint list/detail template hanya diizinkan untuk internal key; pemanggil penjadwalan melalui API key perlu memperoleh id template yang sah melalui aplikasi/internal yang berwenang. API key hanya boleh memakai Publik atau Custom untuk company-nya, termasuk bila pemilik key berrole Global.</p>
+  <p style="max-width:100%;">Validasi akses dilakukan sebelum dispatch job dan diperiksa kembali saat job mulai, sebelum kandidat/jadwal ditulis; role Global diperiksa ulang dari database untuk izin Draft. Jika publikasi berubah saat menunggu queue, job bisa ditolak. Respons sukses penjadwalan tetap berarti request diterima, bukan jaminan job sudah selesai. Jadwal/hasil existing tidak otomatis disembunyikan oleh filter pemilihan template ini.</p>
+  <details><summary>Contoh error 422: template In Basket belum dipilih</summary><div class="codebox"><pre>{
+  "status": 422,
+  "message": "Validation failed",
+  "errors": {
+    "template_inbasket_id": ["Template Inbasket wajib dipilih."]
+  }
+}</pre><button class="copy" type="button">Salin</button></div></details>
+  <details><summary>Contoh error 422: template tidak tersedia untuk company</summary><div class="codebox"><pre>{
+  "status": 422,
+  "message": "Validation failed",
+  "errors": {
+    "question_cs_id": ["Soal Case Study tidak tersedia untuk perusahaan ini."]
+  }
+}</pre><button class="copy" type="button">Salin</button></div></details>
+
   <h3>Respons</h3>
   <div class="scroll"><table>
     <thead><tr><th>Kode</th><th>Kapan</th><th>Bentuk body</th></tr></thead>
@@ -2086,11 +2135,12 @@ Cache-Control: max-age=0
       <tr><td>403</td><td>Auth JWT</td><td><code>{"status":403,"message":"Forbidden"}</code></td></tr>
       <tr><td>404</td><td>User admin / company dari auth tidak ada</td><td><code>{"status":404,"message":"No query results for model [App\\Models\\User] …"}</code></td></tr>
       <tr><td>422</td><td>Validasi field gagal</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
+      <tr><td>422</td><td>Jenis tes AC tidak valid/tidak tersedia, template wajib belum dipilih, atau template tidak boleh diakses berdasarkan publikasi</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code>. Key <code>test_type_ac</code> / <code>test_type_ac.*</code> atau field template terkait; lihat <a href="#ac-scheduling">contoh validasi AC</a>.</td></tr>
       <tr><td>422</td><td>Waktu tidak valid</td><td><code>{"message":"Start test tidak boleh kurang dari waktu saat ini."}</code> atau <code>{"message":"Finish test harus lebih besar dari start test."}</code> (tanpa <code>status</code>)</td></tr>
       <tr><td>422</td><td>Validasi bisnis</td><td><code>{"status":422,"message":"…"}</code>, contoh: <code>Unit not found</code>, <code>Purpose Assessment not found</code>, <code>Form Data not found</code>, <code>Division not found</code>, <code>Position not found</code>, <code>Level not found</code>, <code>Email Template not found</code>, <code>Gagal Menyimpan Jadwal Tes, Daftar Kandidat Kosong</code>, <code>Token tidak aktif</code>, <code>Token tidak cukup</code>, <code>Token free tidak cukup</code>, <code>Duplicate email found in candidates</code>, <code>Test Type 12 is not exist or not available for this company</code>, <code>Assessment Purpose not found</code>, pesan validasi kandidat (<code>Found 1 candidate does not have a valid name.</code>, dst., digabung dengan <code>, </code>).</td></tr>
       <tr><td>422</td><td>Cooldown aktif</td><td><code>{"status":422,"error_code":"ERR_COOLDOWN_ACTIVE","message":"Gagal menjadwalkan. Beberapa email sudah memiliki jadwal untuk jenis tes ini.","details":[{email, type_id, finished_at}]}</code></td></tr>
       <tr><td>423</td><td>Request penjadwalan lain untuk company yang sama sedang berjalan</td><td><code>{"status":423,"message":"Another schedule request is in progress. Please try again shortly."}</code></td></tr>
-      <tr><td>500</td><td>Error lain, termasuk validasi AC/therapy (dilempar sebagai <code>\Exception</code> biasa sehingga menjadi 500, bukan 422)</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
+      <tr><td>500</td><td>Exception tak tertangani, termasuk pemeriksaan legacy konfirmasi kehadiran AC/therapy yang masih melempar <code>\Exception</code> biasa. Validasi pilihan dan publikasi template AC kini menghasilkan 422, bukan 500</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
     </tbody>
   </table></div>
 
@@ -2124,6 +2174,8 @@ Cache-Control: max-age=0
   <p style="max-width:100%;">Pembacaan Excel: sheet aktif dibaca dengan reader <code>Xlsx</code>; baris 1 = header (dicocokkan berdasarkan teks persis). Baris dengan <code>Nama</code> kosong dilewati. Untuk baris lain wajib terisi: <code>Nama</code>, <code>Email</code> (regex email), <code>No. Handphone</code> (hanya digit, opsional diawali <code>+</code>, maks 15 digit), <code>Divisi</code>, <code>Posisi</code>, <code>Level</code>, dan minimal satu kolom test <code>Yes</code>. <b>Nilai Divisi/Posisi/Level dari Excel tidak dipakai</b>: semua kandidat diberi level <code>None</code>, divisi <code>-</code>, dan posisi <code>-</code> milik company. <code>Email Dummy</code> = <code>YES</code> (case-insensitive) → dummy. Norma = norma default per tag; template psikogram dipilih otomatis bila semua tes aspeknya ada.</p>
   <p style="max-width:100%;">Efek samping: sama dengan individu (NIT baru, job <code>CreateTestSchedule</code> per kandidat di queue <code>high</code>, tag baru dibuat, upload <code>file_interview</code>, <code>api_clients.used</code> +1). Bila jenis tes punya beberapa set soal (<code>test_type_urls.set</code>), set dibagi ke kandidat secara acak sesuai bobot (<code>weight</code> %), sisa dibagi round-robin.</p>
 
+  <p style="max-width:100%;">Untuk AC, validasi company, pilihan template, izin Draft, dan pemeriksaan ulang di queue sama dengan <a href="#ac-scheduling">penjadwalan individu</a>. Parameter, format tanggal AC, bentuk respons sukses, dan mekanisme queue existing tidak diubah oleh penambahan publikasi.</p>
+
   <h3>Payload</h3>
   <p style="max-width:100%;">Content-Type <b><code>multipart/form-data</code></b> (wajib karena ada file). Array ditulis dengan suffix <code>[]</code> (contoh <code>test_tags[]=2</code>). Boolean dikirim sebagai <code>1</code>/<code>0</code> atau <code>true</code>/<code>false</code>.</p>
   <div class="scroll"><table>
@@ -2140,7 +2192,9 @@ Cache-Control: max-age=0
       <tr><td><code>sort_tests</code></td><td>boolean</td><td>–</td><td>Default <code>true</code>.</td></tr>
       <tr><td><code>test_tags[]</code></td><td>array (integer|string)</td><td>–</td><td>Id tag atau nama tag baru.</td></tr>
       <tr><td><code>is_demo</code>, <code>free_token</code>, <code>filter_pass_score</code>, <code>is_send_report_candidate</code>, <code>notify_admin</code>, <code>is_report_static</code></td><td>boolean</td><td>–</td><td>Sama dengan individu.</td></tr>
-      <tr><td><code>test_type_ac[]</code>, <code>type_therapy_id[]</code></td><td>integer[]</td><td>–</td><td>Divalidasi terhadap <code>test_type</code> body (yang tidak ada di bulk), lihat catatan.</td></tr>
+      <tr><td><code>test_type_ac[]</code></td><td>integer[]</td><td>–</td><td>Id jenis tes AC dari Test Availability company; integer positif dan tidak duplikat. Mengikuti <a href="#ac-scheduling">validasi publikasi yang sama dengan individu</a>. Pemeriksaan legacy konfirmasi AC tetap membaca <code>test_type</code> body.</td></tr>
+      <tr><td><code>template_inbasket_id</code>, <code>question_cs_id</code>, <code>question_rp_id</code>, <code>question_lgd_id</code></td><td>integer</td><td>Kondisional</td><td>Wajib untuk simulasi terkait yang dipilih; pemetaan dan hak akses sama dengan <a href="#ac-scheduling">individu</a>.</td></tr>
+      <tr><td><code>type_therapy_id[]</code></td><td>integer[]</td><td>–</td><td>Pemeriksaan legacy konfirmasi therapy membaca <code>test_type</code> body; tidak diubah oleh publikasi template AC.</td></tr>
       <tr><td><code>start_interview</code>, <code>finish_interview</code>, <code>purpose_interview_id</code>, <code>note_interview</code></td><td>mixed</td><td>–</td><td>Sama dengan individu.</td></tr>
       <tr><td><code>file_interview[]</code></td><td>file[]</td><td>–</td><td>Diunggah ke DO Spaces bila <code>start_interview</code> juga diisi. Tipe/ukuran tidak divalidasi.</td></tr>
     </tbody>
@@ -2169,11 +2223,12 @@ Cache-Control: max-age=0
       <tr><td>200</td><td>Jadwal diterima</td><td>Sama dengan individu; <code>tests</code> per kandidat sesuai kolom <code>Yes</code> barisnya.</td></tr>
       <tr><td>401 / 403</td><td>Sama dengan individu</td><td><code>{"status":401,"message":"Unauthorized"}</code> / <code>{"status":403,"message":"Forbidden"}</code></td></tr>
       <tr><td>422</td><td>Validasi field gagal</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
+      <tr><td>422</td><td>Jenis tes AC tidak valid/tidak tersedia, template wajib belum dipilih, atau template tidak boleh diakses berdasarkan publikasi</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code>. Key <code>test_type_ac</code> / <code>test_type_ac.*</code> atau field template terkait; lihat <a href="#ac-scheduling">contoh validasi AC</a>.</td></tr>
       <tr><td>422</td><td>Waktu tidak valid</td><td><code>{"message":"…"}</code> (tanpa <code>status</code>), sama dengan individu.</td></tr>
       <tr><td>422</td><td>Excel tidak lengkap</td><td><code>{"status":422,"message":"Please complete the following fields: Email, No. Handphone. Some data in the Excel file is missing or invalid."}</code> (+ catatan format nomor HP bila nomor tidak valid), atau <code>Test Type is empty</code>, <code>Gagal Menyimpan Jadwal Tes, Daftar Kandidat Kosong</code>.</td></tr>
       <tr><td>422</td><td>Validasi bisnis lain</td><td><code>Unit not found</code>, <code>Purpose Assessment not found</code>, <code>Form Data not found</code>, <code>Email Template not found</code>, <code>Token tidak aktif</code>, <code>Token tidak cukup</code>, <code>Duplicate email found in candidates</code>, validasi kandidat, cooldown <code>ERR_COOLDOWN_ACTIVE</code>.</td></tr>
       <tr><td>423</td><td>Lock company sedang dipakai</td><td><code>{"status":423,"message":"Another schedule request is in progress. Please try again shortly."}</code></td></tr>
-      <tr><td>500</td><td>File <code>.xls</code> lama, error AC/therapy, error lain</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
+      <tr><td>500</td><td>File <code>.xls</code> lama, exception legacy konfirmasi AC/therapy, atau error tak tertangani lain. Validasi pilihan/publikasi template AC kini menghasilkan 422</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
     </tbody>
   </table></div>
 
