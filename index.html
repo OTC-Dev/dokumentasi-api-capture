@@ -1041,14 +1041,14 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
     <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
     <tbody>
       <tr><td><code>nit</code></td><td>path</td><td>string</td><td class="req-yes">Ya</td><td>NIT peserta.</td></tr><tr><td><code>company_id</code></td><td>query</td><td>integer</td><td>–</td><td>Company pemilik NIT yang dicek middleware. Default = company dari kredensial (<code>X-Company-Id</code>); untuk selain API key, query ini menggantikannya (sama seperti endpoint list).</td></tr>
-      <tr><td><code>norm_id</code></td><td>query</td><td>integer</td><td>–</td><td>Id norma (<code>test_multi_norms</code>). Hanya berlaku untuk test dengan tag yang sama; test lain memakai <code>tests.norm_id</code> atau default.</td></tr>
+      <tr><td><code>norm_id</code></td><td>query</td><td>integer | integer[]</td><td>–</td><td>Satu atau lebih id norma (<code>test_multi_norms</code>): <code>norm_id=5</code>, <code>norm_id=5,10</code>, atau <code>norm_id[]=5&amp;norm_id[]=10</code>. Tiap norma hanya berlaku untuk test dengan tag yang sama (mis. CIA dan LOGICS sekaligus); bila dua norma untuk tag yang sama, yang pertama di request dipakai. Test lain memakai <code>tests.norm_id</code> atau default.</td></tr>
       <tr><td><code>document_category</code></td><td>query</td><td>enum</td><td>–</td><td><code>test</code> | <code>combine</code> | <code>psikogram</code> | <code>upload</code> | <code>other</code>. Hanya menyaring <code>documents</code>.</td></tr>
       <tr><td><code>type_id</code></td><td>query</td><td>integer</td><td>–</td><td>Jenis tes; hanya menyaring <code>documents</code>.</td></tr>
     </tbody>
   </table></div>
   <h3>Aturan norma</h3>
   <ol>
-    <li><code>norm_id</code> dari request, bila tag-nya sama dengan tag test.</li>
+    <li><code>norm_id</code> dari request yang tag-nya sama dengan tag test.</li>
     <li><code>tests.norm_id</code>, bila tidak <code>null</code>/<code>0</code>, normanya masih ada, dan tag-nya cocok.</li>
     <li>Norma default tag tersebut (<code>is_default</code> 1), company sendiri dulu, lalu global (<code>company_id</code> 0).</li>
   </ol>
@@ -1082,7 +1082,7 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
       <tr><td>403</td><td>Dipanggil dengan JWT atau API key</td><td><code>{"status":403,"message":"Forbidden"}</code></td></tr>
       <tr><td>404</td><td>NIT tidak punya test di unit company pemanggil (middleware <code>EnsureNitBelongsToCompany</code>, sebelum controller)</td><td><code>{"status":404,"message":"Candidate not found"}</code></td></tr>
       <tr><td>404</td><td>NIT tanpa test non-simulasi</td><td><code>{"status":404,"message":"Candidate test not found"}</code></td></tr>
-      <tr><td>422</td><td><code>document_category</code> tidak valid, <code>norm_id</code>/<code>type_id</code> bukan integer</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
+      <tr><td>422</td><td><code>document_category</code> tidak valid, item <code>norm_id</code> atau <code>type_id</code> bukan integer</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
       <tr><td>500</td><td>Proxy DO Spaces membalas non-2xx dengan body JSON (lihat catatan)</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
     </tbody>
   </table></div>
