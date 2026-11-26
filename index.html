@@ -553,7 +553,6 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
     <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
     <tbody>
       <tr><td><code>nit</code></td><td>path</td><td>string</td><td class="req-yes">Ya</td><td>NIT peserta.</td></tr><tr><td><code>company_id</code></td><td>query</td><td>integer</td><td>–</td><td>Company pemilik NIT yang dicek middleware. Default = company dari kredensial (<code>X-Company-Id</code>); untuk selain API key, query ini menggantikannya (sama seperti endpoint list).</td></tr>
-      <tr><td><code>norm_id</code></td><td>query</td><td>integer</td><td>–</td><td>Menyaring ke jenis tes dengan <code>tag</code> = <code>type_tag</code> norma tersebut. Id norma yang tidak ada diabaikan.</td></tr>
     </tbody>
   </table></div>
   <h3>Struktur data</h3>
@@ -572,8 +571,7 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
       <tr><td>401</td><td>Tanpa kredensial / kredensial tidak valid</td><td><code>{"status":401,"message":"Unauthorized"}</code></td></tr>
       <tr><td>403</td><td>Dipanggil dengan JWT atau API key</td><td><code>{"status":403,"message":"Forbidden"}</code></td></tr>
       <tr><td>404</td><td>NIT tidak punya test di unit company pemanggil (middleware <code>EnsureNitBelongsToCompany</code>, sebelum controller)</td><td><code>{"status":404,"message":"Candidate not found"}</code></td></tr>
-      <tr><td>404</td><td>Tidak ada baris <code>result_raws</code> (setelah filter)</td><td><code>{"status":404,"message":"Candidate raw result not found"}</code></td></tr>
-      <tr><td>422</td><td><code>norm_id</code> bukan integer</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
+      <tr><td>404</td><td>Tidak ada baris <code>result_raws</code></td><td><code>{"status":404,"message":"Candidate raw result not found"}</code></td></tr>
     </tbody>
   </table></div>
   <details><summary>Contoh respons sukses (contoh, dipotong)</summary><div class="codebox"><pre>{
@@ -609,13 +607,14 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
 <section class="ep" id="01-candidates-result-test">
   <div class="ep-head"><span class="method m-get">GET</span><span class="path">/api/v1/candidates/{nit}/result-test</span>
     <span class="chips"><span class="chip">CandidateController@resultTest</span></span></div>
-  <p style="max-width:100%;">Hasil psikotes per test milik NIT (urut <code>sort</code>, lalu <code>id</code>), termasuk test simulasi AC (aspeknya <code>[]</code>). <code>data</code> berupa <b>array</b> (bukan objek seperti versi members) dan tanpa daftar PDF. Aturan norma berbeda dari members: CIA tanpa <code>norm_id</code> selalu memakai norma CIA <code>is_default</code> pertama (mengabaikan <code>tests.norm_id</code>); jenis lain memakai <code>norm_id</code> request bila tag cocok, lalu <code>tests.norm_id</code>, tanpa fallback default. WVA hanya menampilkan rank 1–3 (<code>Tinggi</code>) dan 10–12 (<code>Rendah</code>). NIT harus punya test di unit milik company pemanggil (middleware <code>EnsureNitBelongsToCompany</code>), kalau tidak 404. Akses: hanya internal key.</p>
+  <p style="max-width:100%;">Hasil psikotes per test milik NIT (urut <code>sort</code>, lalu <code>id</code>), termasuk test simulasi AC (aspeknya <code>[]</code>). <code>data</code> berupa <b>array</b> (bukan objek seperti versi members) dan tanpa daftar PDF. Aturan norma sama dengan members: <code>norm_cia</code>/<code>norm_logics</code> dari request, lalu <code>tests.norm_id</code> (bila tag-nya cocok), lalu norma default tag tersebut (company sendiri dulu, lalu global). WVA hanya menampilkan rank 1–3 (<code>Tinggi</code>) dan 10–12 (<code>Rendah</code>). NIT harus punya test di unit milik company pemanggil (middleware <code>EnsureNitBelongsToCompany</code>), kalau tidak 404. Akses: hanya internal key.</p>
   <h3>Parameter</h3>
   <div class="scroll"><table>
     <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
     <tbody>
       <tr><td><code>nit</code></td><td>path</td><td>string</td><td class="req-yes">Ya</td><td>NIT peserta.</td></tr><tr><td><code>company_id</code></td><td>query</td><td>integer</td><td>–</td><td>Company pemilik NIT yang dicek middleware. Default = company dari kredensial (<code>X-Company-Id</code>); untuk selain API key, query ini menggantikannya (sama seperti endpoint list).</td></tr>
-      <tr><td><code>norm_id</code></td><td>query</td><td>integer</td><td>–</td><td>Id <code>test_multi_norms</code>; hanya berlaku untuk test dengan tag yang sama.</td></tr>
+      <tr><td><code>norm_cia</code></td><td>query</td><td>integer</td><td>–</td><td>Id norma CIA (<code>test_multi_norms</code> dengan <code>type_tag</code> CIA). Filter <code>tests.norm_id</code>: test CIA hanya tampil bila <code>tests.norm_id</code> = id ini (test dengan <code>norm_id</code> kosong ikut dibuang). Test jenis lain tetap tampil.</td></tr>
+      <tr><td><code>norm_logics</code></td><td>query</td><td>integer</td><td>–</td><td>Id norma LOGICS (<code>type_tag</code> LOGICS). Filter <code>tests.norm_id</code>: test LOGICS hanya tampil bila <code>tests.norm_id</code> = id ini (test dengan <code>norm_id</code> kosong ikut dibuang). Test jenis lain tetap tampil.</td></tr>
     </tbody>
   </table></div>
   <h3>Struktur data</h3>
@@ -636,7 +635,7 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
       <tr><td>403</td><td>Dipanggil dengan JWT atau API key</td><td><code>{"status":403,"message":"Forbidden"}</code></td></tr>
       <tr><td>404</td><td>NIT tidak punya test di unit company pemanggil (middleware <code>EnsureNitBelongsToCompany</code>, sebelum controller)</td><td><code>{"status":404,"message":"Candidate not found"}</code></td></tr>
       <tr><td>404</td><td>NIT tanpa test</td><td><code>{"status":404,"message":"Candidate test not found"}</code></td></tr>
-      <tr><td>422</td><td><code>norm_id</code> bukan integer</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
+      <tr><td>422</td><td><code>norm_cia</code>/<code>norm_logics</code> bukan integer, bukan id norma tag itu, atau normanya sudah dihapus</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
     </tbody>
   </table></div>
   <details><summary>Contoh respons sukses (contoh, dipotong)</summary><div class="codebox"><pre>{
@@ -954,7 +953,6 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
     <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
     <tbody>
       <tr><td><code>nit</code></td><td>path</td><td>string</td><td class="req-yes">Ya</td><td>NIT peserta.</td></tr><tr><td><code>company_id</code></td><td>query</td><td>integer</td><td>–</td><td>Company pemilik NIT yang dicek middleware. Default = company dari kredensial (<code>X-Company-Id</code>); untuk selain API key, query ini menggantikannya (sama seperti endpoint list).</td></tr>
-      <tr><td><code>norm_id</code></td><td>query</td><td>integer</td><td>–</td><td>Menyaring baris <code>result_raws</code> ke jenis tes dengan tag norma itu (juga berlaku ke evaluasi eksternal di <code>result_simulations</code>).</td></tr>
       <tr><td><code>simulation</code></td><td>query</td><td>true|false|1|0</td><td>–</td><td><code>true</code>: hanya <code>result_simulations</code> (key <code>result_tests</code> tidak dikirim); 404 bila NIT tidak punya simulasi. <code>false</code>/kosong: keduanya.</td></tr>
     </tbody>
   </table></div>
@@ -979,7 +977,7 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
       <tr><td>403</td><td>Dipanggil dengan JWT atau API key</td><td><code>{"status":403,"message":"Forbidden"}</code></td></tr>
       <tr><td>404</td><td>NIT tidak punya test di unit company pemanggil (middleware <code>EnsureNitBelongsToCompany</code>, sebelum controller)</td><td><code>{"status":404,"message":"Candidate not found"}</code></td></tr>
       <tr><td>404</td><td>Tidak ada psikotes maupun simulasi (atau <code>simulation=true</code> tanpa simulasi)</td><td><code>{"status":404,"message":"Candidate raw result not found"}</code></td></tr>
-      <tr><td>422</td><td><code>simulation</code> di luar true/false/1/0, atau <code>norm_id</code> bukan integer</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
+      <tr><td>422</td><td><code>simulation</code> di luar true/false/1/0</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
     </tbody>
   </table></div>
   <details><summary>Contoh respons sukses (contoh: <code>/members/OTC2404301124yE39126/result-raw</code>, dipotong)</summary><div class="codebox"><pre>{
@@ -1041,14 +1039,14 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
     <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
     <tbody>
       <tr><td><code>nit</code></td><td>path</td><td>string</td><td class="req-yes">Ya</td><td>NIT peserta.</td></tr><tr><td><code>company_id</code></td><td>query</td><td>integer</td><td>–</td><td>Company pemilik NIT yang dicek middleware. Default = company dari kredensial (<code>X-Company-Id</code>); untuk selain API key, query ini menggantikannya (sama seperti endpoint list).</td></tr>
-      <tr><td><code>norm_id</code></td><td>query</td><td>integer | integer[]</td><td>–</td><td>Satu atau lebih id norma (<code>test_multi_norms</code>): <code>norm_id=5</code>, <code>norm_id=5,10</code>, atau <code>norm_id[]=5&amp;norm_id[]=10</code>. Tiap norma hanya berlaku untuk test dengan tag yang sama (mis. CIA dan LOGICS sekaligus); bila dua norma untuk tag yang sama, yang pertama di request dipakai. Test lain memakai <code>tests.norm_id</code> atau default.</td></tr>
+      <tr><td><code>norm_cia</code></td><td>query</td><td>integer</td><td>–</td><td>Id norma CIA (<code>test_multi_norms</code> dengan <code>type_tag</code> CIA). Filter <code>tests.norm_id</code>: test CIA hanya tampil bila <code>tests.norm_id</code> = id ini (test dengan <code>norm_id</code> kosong ikut dibuang). Test jenis lain tetap tampil.</td></tr>
+      <tr><td><code>norm_logics</code></td><td>query</td><td>integer</td><td>–</td><td>Id norma LOGICS (<code>type_tag</code> LOGICS). Filter <code>tests.norm_id</code>: test LOGICS hanya tampil bila <code>tests.norm_id</code> = id ini (test dengan <code>norm_id</code> kosong ikut dibuang). Test jenis lain tetap tampil.</td></tr>
       <tr><td><code>document_category</code></td><td>query</td><td>enum</td><td>–</td><td><code>test</code> | <code>combine</code> | <code>psikogram</code> | <code>upload</code> | <code>other</code>. Hanya menyaring <code>documents</code>.</td></tr>
       <tr><td><code>type_id</code></td><td>query</td><td>integer</td><td>–</td><td>Jenis tes; hanya menyaring <code>documents</code>.</td></tr>
     </tbody>
   </table></div>
   <h3>Aturan norma</h3>
   <ol>
-    <li><code>norm_id</code> dari request yang tag-nya sama dengan tag test.</li>
     <li><code>tests.norm_id</code>, bila tidak <code>null</code>/<code>0</code>, normanya masih ada, dan tag-nya cocok.</li>
     <li>Norma default tag tersebut (<code>is_default</code> 1), company sendiri dulu, lalu global (<code>company_id</code> 0).</li>
   </ol>
@@ -1082,7 +1080,7 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
       <tr><td>403</td><td>Dipanggil dengan JWT atau API key</td><td><code>{"status":403,"message":"Forbidden"}</code></td></tr>
       <tr><td>404</td><td>NIT tidak punya test di unit company pemanggil (middleware <code>EnsureNitBelongsToCompany</code>, sebelum controller)</td><td><code>{"status":404,"message":"Candidate not found"}</code></td></tr>
       <tr><td>404</td><td>NIT tanpa test non-simulasi</td><td><code>{"status":404,"message":"Candidate test not found"}</code></td></tr>
-      <tr><td>422</td><td><code>document_category</code> tidak valid, item <code>norm_id</code> atau <code>type_id</code> bukan integer</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
+      <tr><td>422</td><td><code>document_category</code> tidak valid, <code>type_id</code> bukan integer, atau <code>norm_cia</code>/<code>norm_logics</code> bukan integer, bukan id norma tag itu, atau normanya sudah dihapus</td><td><code>{"status":422,"message":"Validation failed","errors":{…}}</code></td></tr>
       <tr><td>500</td><td>Proxy DO Spaces membalas non-2xx dengan body JSON (lihat catatan)</td><td><code>{"status":500,"message":"Internal Server Error"}</code></td></tr>
     </tbody>
   </table></div>
@@ -1600,7 +1598,7 @@ h2.group { font-size: 26px; margin: 24px 0 -24px; padding-top: 16px; border-top:
 <section class="ep" id="02-norms">
   <div class="ep-head"><span class="method m-get">GET</span><span class="path">/api/v1/norms</span>
     <span class="chips"><span class="chip">NormController@index</span><span class="chip">Akses: internal</span></span></div>
-  <p style="max-width:100%;">Norma untuk satu jenis tes: dicari lewat <code>tag</code> jenis tes (termasuk jenis tes yang sudah dihapus), norma global (<code>company_id</code> 0) ditambah norma khusus company. Norma default paling atas (<code>is_default</code> desc), lalu <code>id</code>. <code>id</code> dipakai sebagai <code>norm_id</code> di <code>result-test</code>. Hanya kredensial internal.</p>
+  <p style="max-width:100%;">Norma untuk satu jenis tes: dicari lewat <code>tag</code> jenis tes (termasuk jenis tes yang sudah dihapus), norma global (<code>company_id</code> 0) ditambah norma khusus company. Norma default paling atas (<code>is_default</code> desc), lalu <code>id</code>. <code>id</code> dipakai sebagai <code>norm_cia</code>/<code>norm_logics</code> di <code>result-test</code>. Hanya kredensial internal.</p>
   <h3>Parameter</h3>
   <div class="scroll"><table>
     <thead><tr><th>Param</th><th>Lokasi</th><th>Tipe</th><th>Wajib</th><th>Keterangan</th></tr></thead>
